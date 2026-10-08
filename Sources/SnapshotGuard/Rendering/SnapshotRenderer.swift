@@ -12,12 +12,18 @@ enum SnapshotRenderer {
             throw SnapshotGuardError.alreadyInHierarchy
         }
 
-        let window = OffscreenWindow.make(for: configuration)
+        let offscreen = OffscreenWindow(configuration: configuration)
+        defer { offscreen.tearDown() }
+
+        // A view has no safe area of its own: it takes it from the controller it sits in.
+        let host = UIViewController()
+        offscreen.install(host)
+
         let originalFrame = view.frame
         let translatesAutoresizingMask = view.translatesAutoresizingMaskIntoConstraints
         var pinConstraints: [NSLayoutConstraint] = []
 
-        window.addSubview(view)
+        host.view.addSubview(view)
         defer {
             NSLayoutConstraint.deactivate(pinConstraints)
             view.removeFromSuperview()
@@ -26,18 +32,18 @@ enum SnapshotRenderer {
         }
 
         if translatesAutoresizingMask {
-            view.frame = window.bounds
+            view.frame = offscreen.window.bounds
         } else {
             pinConstraints = [
-                view.topAnchor.constraint(equalTo: window.topAnchor),
-                view.leadingAnchor.constraint(equalTo: window.leadingAnchor),
-                view.bottomAnchor.constraint(equalTo: window.bottomAnchor),
-                view.trailingAnchor.constraint(equalTo: window.trailingAnchor)
+                view.topAnchor.constraint(equalTo: host.view.topAnchor),
+                view.leadingAnchor.constraint(equalTo: host.view.leadingAnchor),
+                view.bottomAnchor.constraint(equalTo: host.view.bottomAnchor),
+                view.trailingAnchor.constraint(equalTo: host.view.trailingAnchor)
             ]
             NSLayoutConstraint.activate(pinConstraints)
         }
 
-        return try capture(view, in: window, configuration: configuration)
+        return try capture(view, in: offscreen.window, configuration: configuration)
     }
 
     @MainActor
@@ -49,11 +55,11 @@ enum SnapshotRenderer {
             throw SnapshotGuardError.alreadyInHierarchy
         }
 
-        let window = OffscreenWindow.make(for: configuration)
-        window.rootViewController = viewController
-        defer { window.rootViewController = nil }
+        let offscreen = OffscreenWindow(configuration: configuration)
+        defer { offscreen.tearDown() }
+        offscreen.install(viewController)
 
-        return try capture(viewController.view, in: window, configuration: configuration)
+        return try capture(viewController.view, in: offscreen.window, configuration: configuration)
     }
 
     /// Lays out `view` inside `window` and draws it.

@@ -97,11 +97,7 @@ explicitly described environment.
 ```swift
 import SnapshotGuard
 
-// A configuration is a plain value that is valid by construction.
-let configuration = try VisualConfiguration(
-    viewport: CGSize(width: 393, height: 852), // points
-    scale: 3
-)
+let configuration = VisualConfiguration(device: .iPhone16Pro)
 
 // Render a view controller that has not been presented…
 let snapshot = try SnapshotGuard.render(
@@ -112,28 +108,59 @@ let snapshot = try SnapshotGuard.render(
 // …or a plain view. `configuration` defaults to `.default` (393 × 852 pt @3x).
 let viewSnapshot = try SnapshotGuard.render(myView)
 
-snapshot.image        // UIImage, 393 × 852 pt @3x
-snapshot.pixelWidth   // 1179
-snapshot.pixelHeight  // 2556
+snapshot.image        // UIImage, 402 × 874 pt @3x
+snapshot.pixelWidth   // 1206
+snapshot.pixelHeight  // 2622
 snapshot.configuration
 ```
 
 Rendering is `@MainActor` and throws `SnapshotGuardError` for views that are already in a hierarchy
 or bitmaps that cannot be allocated.
 
+### Device presets
+
+A `DevicePreset` describes a known device by the characteristics that change what UIKit lays out and
+draws: viewport, display scale, safe area, idiom and size classes. Presets encapsulate them so a
+render is **deterministic and independent of the simulator running it** — rendering `.iPhone16Pro`
+on an iPad simulator gives a view the same safe area, size classes and idiom as on an iPhone one.
+
+| Preset          | Viewport (pt) | Scale | Safe area (top / left / bottom / right) | Size classes (H × V) | Idiom |
+| --------------- | ------------- | ----- | --------------------------------------- | -------------------- | ----- |
+| `.iPhoneSE`     | 375 × 667     | 2×    | 20 / 0 / 0 / 0                          | compact × regular    | phone |
+| `.iPhone16Pro`  | 402 × 874     | 3×    | 62 / 0 / 34 / 0                         | compact × regular    | phone |
+| `.iPadPro13`    | 1032 × 1376   | 2×    | 32 / 0 / 25 / 0                         | regular × regular    | pad   |
+
+All presets are **portrait, full-screen** apps. Landscape, Split View and Stage Manager are not
+modelled yet. The values and where they come from are documented on each preset. Safe area insets
+can differ between OS versions for the same hardware; the `iPadPro13` insets are those of iPadOS 26.
+
+A preset is a convenience, not a requirement. A `VisualConfiguration` can describe any environment:
+
+```swift
+let configuration = try VisualConfiguration(
+    viewport: CGSize(width: 500, height: 700),
+    scale: 2,
+    safeAreaInsets: SafeAreaInsets(top: 20, bottom: 10) // optional
+)
+```
+
+Nothing is inferred from the viewport: values you leave out default to *no safe area, phone idiom,
+compact × regular size classes*.
+
 ### Determinism, and what to expect
 
-Rendering happens in a hidden, scene-less window created per call. The display scale comes from the
-`VisualConfiguration`; until appearance and text size become part of it, they are pinned to **light**
+Rendering happens in an offscreen window created per call. Everything the `VisualConfiguration`
+describes is pinned; until appearance and text size become part of it, they are pinned to **light**
 and **`large`**, so results do not change with the simulator's settings. See the documentation on
 `SnapshotGuard` for the full list of limitations. The important ones:
 
 - Content composited outside the layer tree (`UIVisualEffectView` blurs, Metal, video, `WKWebView`)
   is not captured.
-- Safe area insets are zero; size classes, layout direction and locale still come from the
-  environment. Device presets will address this.
+- Layout direction and locale still come from the environment.
 - Layout runs one `layoutIfNeeded()` pass. Settle asynchronous content before rendering.
 - Pixels can differ across OS versions; record and verify on the same simulator runtime.
+- The offscreen window is briefly shown, so view controllers receive appearance callbacks. This has
+  been validated in test bundles without a host application only.
 
 ## Roadmap
 
@@ -143,7 +170,7 @@ Checked items exist today.
 - [x] `UIView` rendering
 - [x] `UIViewController` rendering
 - [x] `VisualConfiguration` foundation
-- [ ] Device presets
+- [x] Device presets
 - [ ] Visual Matrix
 - [ ] Baseline recording
 - [ ] Pixel comparison
@@ -166,12 +193,12 @@ Contribution guidelines are coming. Until then, issues and design discussion are
 keep changes small and focused: the project is built incrementally and each step is meant to be easy
 to review.
 
-To run the tests:
+To run the tests, on an iPhone **and** an iPad simulator — the device-environment tests are meant to
+hold on both:
 
 ```sh
-xcodebuild test \
-  -scheme SnapshotGuard \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+xcodebuild test -scheme SnapshotGuard -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+xcodebuild test -scheme SnapshotGuard -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)'
 ```
 
 ## License

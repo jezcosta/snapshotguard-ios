@@ -53,6 +53,46 @@ struct VisualConfigurationTests {
         }
     }
 
+    @Test(arguments: [
+        SafeAreaInsets(top: -1),
+        SafeAreaInsets(left: -0.5),
+        SafeAreaInsets(bottom: -10),
+        SafeAreaInsets(right: -1),
+        SafeAreaInsets(top: .nan),
+        SafeAreaInsets(left: .infinity),
+        SafeAreaInsets(top: 60, bottom: 40),   // fills the whole 100 pt height
+        SafeAreaInsets(left: 50, right: 50),   // fills the whole 100 pt width
+        SafeAreaInsets(top: 500),
+    ])
+    func rejectsInvalidSafeAreaInsets(_ insets: SafeAreaInsets) {
+        do {
+            _ = try VisualConfiguration(viewport: CGSize(width: 100, height: 100), scale: 2, safeAreaInsets: insets)
+            Issue.record("Expected \(insets) to be rejected")
+        } catch SnapshotGuardError.invalidSafeAreaInsets {
+            // expected
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test func acceptsInsetsThatLeaveRoomInsideTheViewport() throws {
+        let insets = SafeAreaInsets(top: 49, left: 49, bottom: 49, right: 49)
+
+        let configuration = try VisualConfiguration(viewport: CGSize(width: 100, height: 100), scale: 2, safeAreaInsets: insets)
+
+        #expect(configuration.safeAreaInsets == insets)
+    }
+
+    @Test func environmentValuesParticipateInEquality() throws {
+        let size = CGSize(width: 320, height: 568)
+        let base = try VisualConfiguration(viewport: size, scale: 2)
+
+        #expect(try VisualConfiguration(viewport: size, scale: 2, safeAreaInsets: SafeAreaInsets(top: 1)) != base)
+        #expect(try VisualConfiguration(viewport: size, scale: 2, idiom: .pad) != base)
+        #expect(try VisualConfiguration(viewport: size, scale: 2, horizontalSizeClass: .regular) != base)
+        #expect(try VisualConfiguration(viewport: size, scale: 2, verticalSizeClass: .compact) != base)
+    }
+
     @Test func invalidViewportErrorCarriesTheOffendingValue() {
         let viewport = CGSize(width: 0, height: 10)
 

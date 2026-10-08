@@ -9,6 +9,10 @@ public enum SnapshotGuardError: Error, Equatable, Sendable {
     /// The scale is not a finite number greater than zero.
     case invalidScale(CGFloat)
 
+    /// The safe area insets are not usable: an inset is negative or not finite, or the insets leave
+    /// no room inside the viewport.
+    case invalidSafeAreaInsets(SafeAreaInsets)
+
     /// The view, or the view controller's view, is already part of a view hierarchy.
     ///
     /// SnapshotGuard has to host the view in its own offscreen window to lay it out. Moving a view
@@ -28,6 +32,8 @@ extension SnapshotGuardError: LocalizedError {
             return "Invalid viewport \(size.width) × \(size.height): width and height must be finite and greater than zero."
         case .invalidScale(let scale):
             return "Invalid scale \(scale): scale must be finite and greater than zero."
+        case .invalidSafeAreaInsets(let insets):
+            return "Invalid safe area insets (top \(insets.top), left \(insets.left), bottom \(insets.bottom), right \(insets.right)): insets must be finite, not negative, and smaller than the viewport."
         case .alreadyInHierarchy:
             return "The view is already part of a view hierarchy. Render a view that has no superview, or a view controller that is neither presented nor embedded."
         case .renderingFailed:

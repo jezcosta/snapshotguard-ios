@@ -24,6 +24,7 @@ extension UIImage {
         let py = Int(y * scale)
         guard px >= 0, py >= 0, px < cgImage.width, py < cgImage.height else { return nil }
 
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
         var bytes = [UInt8](repeating: 0, count: 4)
         let drawn = bytes.withUnsafeMutableBytes { buffer -> Bool in
             guard let context = CGContext(
@@ -32,7 +33,7 @@ extension UIImage {
                 height: 1,
                 bitsPerComponent: 8,
                 bytesPerRow: 4,
-                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                space: colorSpace,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
             ) else { return false }
             context.interpolationQuality = .none
